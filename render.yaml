@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: laundry-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma migrate deploy
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: laundry-db
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://your-frontend-domain.vercel.app
+      - key: PORT
+        value: 5000
+
+  - type: postgres
+    name: laundry-db
+    plan: free
+    postgresSQLVersion: 16

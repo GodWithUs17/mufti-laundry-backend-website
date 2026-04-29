@@ -1,0 +1,165 @@
+// ---------------------------------------------------------
+// 1. GENERATOR & DATASOURCE (Updated for Prisma 7)
+// ---------------------------------------------------------
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL is now handled in prisma.config.ts
+}
+
+// ---------------------------------------------------------
+// 2. DATA ENUMS
+// ---------------------------------------------------------
+enum Role {
+  ADMIN
+  STAFF
+  DRIVER
+}
+
+enum OrderStatus {
+  REQUESTED
+  PICKED_UP
+  BILLED
+  PROCESSING
+  READY
+  DELIVERED
+}
+
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum PaymentType {
+  CASH
+  TRANSFER
+  POS
+  ONLINE
+}
+
+
+// ---------------------------------------------------------
+// 3. THE PRICE LIST & CATEGORIES
+// ---------------------------------------------------------
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique // e.g., "Wash & Iron"
+  services  Service[] // A category can have many services
+  createdAt DateTime  @default(now())
+}
+
+model Service {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  price       Float
+  
+  // Change category String? to this relationship:
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  orderItems  OrderItem[]
+}
+
+// ---------------------------------------------------------
+// 4. THE USERS (Admin & Staff)
+// ---------------------------------------------------------
+model User {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  phone          String?  @unique
+  password       String
+  role           Role     @default(STAFF)
+  managedOrders  Order[]  @relation("StaffRelation")
+  deliveryTasks  Order[]  @relation("DriverRelation")
+  isActive       Boolean  @default(true) // Add this line
+  createdAt      DateTime @default(now())
+}
+
+// ---------------------------------------------------------
+// 5. THE CORE ORDER
+// ---------------------------------------------------------
+model Order {
+  id               String      @id @default(cuid())
+  trackingCode     String      @unique
+  customerName     String
+  customerPhone    String
+  address          String
+  status           OrderStatus @default(REQUESTED)
+  
+  // ADD THESE PROFESSIONAL FIELDS HERE:
+  processingNotes  String?     // <--- For Admin to give instructions to Staff
+  startedAt        DateTime?   // <--- Tracks when washing actually began
+  completedAt      DateTime?   // <--- Tracks when the task was finished
+  paymentMethod    String?     // <--- e.g., "Cash", "Transfer", or "POS"
+
+  // Pickup Details
+  pickupDate       DateTime
+  pickupSlot       String
+  pickupNotes      String?
+  
+  // Billing
+  applyHandlingFee Boolean     @default(true) 
+  handlingFeeAmount Float      @default(200)
+  subtotal         Float       @default(0) 
+  totalAmount      Float       @default(0)
+  isPaid           Boolean     @default(false)
+
+  paymentStatus     PaymentStatus @default(UNPAID)
+  amountPaid        Float         @default(0)
+
+  payments          Payment[]
+  
+  // Relations
+  staffId          String?
+  staff            User?       @relation("StaffRelation", fields: [staffId], references: [id])
+  driverId         String?
+  driver           User?       @relation("DriverRelation", fields: [driverId], references: [id])
+  
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+
+// --- ADD NEW SECTION 7: THE PAYMENT LOGS ---
+model Payment {
+  id              String      @id @default(uuid())
+  orderId         String
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  amount          Float       // Specific amount for this transaction
+  method          PaymentType // Enum: CASH, TRANSFER, POS, ONLINE
+  reference       String?     // Bank Ref or last 4 digits of POS
+  
+  // Optional: track which staff member collected the cash
+  receivedById    String?
+  
+  createdAt       DateTime    @default(now())
+}
+
+// ---------------------------------------------------------
+// 6. ORDER ITEMS (The Bridge)
+// ---------------------------------------------------------
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Link back to Service
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+  
+  itemName  String 
+  quantity  Int    @default(1)
+  unitPrice Float  
+}
