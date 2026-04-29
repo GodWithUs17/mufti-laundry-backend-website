@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 const bcrypt = require('bcryptjs'); // Make sure this is installed: npm install bcryptjs
 
-const connectionString = "postgresql://postgres:manifoldwisdom@localhost:5432/laundry_db?schema=public";
+const connectionString = process.env.DATABASE_URL || "postgresql://postgres:manifoldwisdom@localhost:5432/laundry_db?schema=public";
 
 async function main() {
   const client = new Client({ connectionString });
